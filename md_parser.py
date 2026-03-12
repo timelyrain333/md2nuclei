@@ -88,7 +88,7 @@ class MDParser:
         requests = []
 
         # 匹配代码块中的内容
-        code_blocks = re.findall(r'```(?:bash|java|plain|http)?\s*\n([\s\S]*?)\n```', text)
+        code_blocks = re.findall(r'```[a-zA-Z]*\s*\n([\s\S]*?)\n```', text)
 
         for block in code_blocks:
             # 检查是否是HTTP请求（以HTTP方法或包含Host头）

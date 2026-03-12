@@ -75,20 +75,19 @@ class NucleiGenerator:
         return template
 
     def _generate_id(self, vuln_info: VulnerabilityInfo) -> str:
-        """生成模板ID"""
-        # 使用标题生成ID
-        title = vuln_info.title.lower()
-
-        # 移除特殊字符
-        title = re.sub(r'[^\w\s\u4e00-\u9fff]', '', title)
-        title = re.sub(r'\s+', '-', title)
-
-        # 如果标题太长，使用hash
-        if len(title) > 50:
-            hash_suffix = hashlib.md5(vuln_info.title.encode()).hexdigest()[:8]
-            title = title[:40] + '-' + hash_suffix
-
-        return title.strip('-')
+        """生成模板ID（只保留ASCII字母数字和连字符，加hash后缀保证唯一性）"""
+        title = vuln_info.title
+        # 将中文替换为连字符
+        ascii_part = re.sub(r'[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+', '-', title)
+        # 移除其他非字母数字字符
+        ascii_part = re.sub(r'[^\w\s-]', '', ascii_part)
+        ascii_part = re.sub(r'[-\s]+', '-', ascii_part).strip('-').lower()
+        # 加 hash 后缀保证唯一性
+        hash_suffix = hashlib.md5(vuln_info.title.encode()).hexdigest()[:8]
+        if len(ascii_part) > 35:
+            ascii_part = ascii_part[:35].strip('-')
+        template_id = f"{ascii_part}-{hash_suffix}".strip('-')
+        return template_id if template_id else hash_suffix
 
     def _generate_info(self, vuln_info: VulnerabilityInfo) -> Dict:
         """生成info部分"""
@@ -205,6 +204,7 @@ class NucleiGenerator:
 
         # 添加匹配器
         request['matchers'] = self._generate_matchers(http_req, vuln_info)
+        request['matchers-condition'] = 'or'
 
         return request
 
@@ -252,10 +252,6 @@ class NucleiGenerator:
 
         matchers.append(status_matcher)
 
-        # 设置匹配条件
-        if len(matchers) > 1:
-            matchers[-1]['condition'] = 'or'
-
         return matchers
 
     def _create_basic_request(self, vuln_info: VulnerabilityInfo) -> Dict:
@@ -276,7 +272,7 @@ class NucleiGenerator:
         data = {
             'id': template.id,
             'info': template.info,
-            'requests': template.requests
+            'http': template.requests  # Nuclei v3 使用 http 而非 requests
         }
 
         # 自定义YAML输出格式
